@@ -5,10 +5,12 @@ import { useEffect } from 'react';
 import { styles } from './styles';
 
 type Props = TouchableOpacityProps & {
+  title: string;
+  type: 'EASY' | `MEDIUM` | `HARD`
   isChecked?: boolean;
 }
 
-export function Level({isChecked = false, ...rest }: Props) {
+export function Level({title, isChecked = false, type, ...rest }: Props) {
 
   const isCheckedSharedValue = useSharedValue(1)
 
@@ -36,7 +38,7 @@ export function Level({isChecked = false, ...rest }: Props) {
         ]
       }>
         <Text>
-          Text
+          {title}
         </Text>
       </Animated.View>
     </Pressable>
