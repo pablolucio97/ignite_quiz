@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
+import { Audio } from 'expo-av'
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Animated, {
@@ -29,7 +30,7 @@ import { OutlineButton } from '../../components/OutlineButton';
 import { ProgressBar } from '../../components/ProgressBar';
 import { Question } from '../../components/Question';
 import { QuizHeader } from '../../components/QuizHeader';
-import {OverlayFeedback} from '../../components/OverlayFeedback'
+import { OverlayFeedback } from '../../components/OverlayFeedback'
 import { THEME } from '../../styles/theme';
 
 interface Params {
@@ -63,6 +64,17 @@ export function Quiz() {
 
   const route = useRoute();
   const { id } = route.params as Params;
+
+  async function playAudio(isCorrect: boolean) {
+
+    const file = isCorrect ? require('../../assets/correct.mp3') : require('../../assets/wrong.mp3')
+
+    const { sound } = await Audio.Sound.createAsync(file, { shouldPlay: true, volume: 1 });
+
+    await sound.setPositionAsync(0);
+    await sound.playAsync()
+
+  }
 
   function handleSkipConfirm() {
     Alert.alert('Pular', 'Deseja realmente pular a questão?', [
@@ -100,8 +112,10 @@ export function Quiz() {
     }
 
     if (quiz.questions[currentQuestion].correct === alternativeSelected) {
+      playAudio(true)
       setPoints(prevState => prevState + 1);
     } else {
+      playAudio(false)
       shakeAnimation()
     }
 
@@ -168,7 +182,7 @@ export function Quiz() {
       handleNextQuestion();
     }
   }, [points]);
-  
+
   const onPan = Gesture
     .Pan()
     .onUpdate((event) => {
@@ -178,7 +192,7 @@ export function Quiz() {
       }
     })
     .onEnd(event => {
-      if(event.translationX < CARD_SKIP_AREA) {
+      if (event.translationX < CARD_SKIP_AREA) {
         runOnJS(handleSkipConfirm)()
       }
       cardPositionSharedValue.value = withTiming(0)
@@ -189,11 +203,11 @@ export function Quiz() {
     return {
       transform: [
         { rotateZ: `${rotateZValue}deg` },
-        { translateX: cardPositionSharedValue.value * 1.5}
+        { translateX: cardPositionSharedValue.value * 1.5 }
       ]
     }
   })
-  
+
   if (isLoading) {
     return <Loading />
   }
@@ -203,7 +217,7 @@ export function Quiz() {
 
   return (
     <View style={styles.container}>
-      <OverlayFeedback color='orange'/>
+      <OverlayFeedback color='orange' />
       <Animated.View
         style={fixedProgressBarStyles}
       >
