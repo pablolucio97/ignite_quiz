@@ -4,6 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Button } from '../../components/Button';
 
 import { styles } from './styles';
+import { Stars } from '../../components/AnimatedStar';
 
 interface Params {
   total: string;

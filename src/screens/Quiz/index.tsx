@@ -1,26 +1,36 @@
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Animated, {
   Easing,
+  Extrapolate,
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withTiming
 } from 'react-native-reanimated';
 
+import { useAnimatedScrollHandler } from 'react-native-reanimated';
+
+
+
 import { styles } from './styles';
 
 import { QUIZ } from '../../data/quiz';
 import { historyAdd } from '../../storage/quizHistoryStorage';
 
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { ConfirmButton } from '../../components/ConfirmButton';
 import { Loading } from '../../components/Loading';
 import { OutlineButton } from '../../components/OutlineButton';
+import { ProgressBar } from '../../components/ProgressBar';
 import { Question } from '../../components/Question';
 import { QuizHeader } from '../../components/QuizHeader';
+import {OverlayFeedback} from '../../components/OverlayFeedback'
+import { THEME } from '../../styles/theme';
 
 interface Params {
   id: string;
@@ -36,8 +46,20 @@ export function Quiz() {
   const [alternativeSelected, setAlternativeSelected] = useState<null | number>(null);
 
   const shakeSharedValue = useSharedValue(0)
+  const scrollYSharedValue = useSharedValue(0)
+  const cardPositionSharedValue = useSharedValue(0)
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollYSharedValue.value = event.contentOffset.y
+    }
+  })
 
   const { navigate } = useNavigation();
+
+  const CARD_INCLINATION = 20
+  const CARD_SKIP_AREA = -200
+
 
   const route = useRoute();
   const { id } = route.params as Params;
@@ -79,7 +101,7 @@ export function Quiz() {
 
     if (quiz.questions[currentQuestion].correct === alternativeSelected) {
       setPoints(prevState => prevState + 1);
-    }else{
+    } else {
       shakeAnimation()
     }
 
@@ -121,6 +143,20 @@ export function Quiz() {
     }
   })
 
+  const fixedProgressBarStyles = useAnimatedStyle(() => {
+    return {
+      position: 'absolute',
+      paddingTop: 50,
+      backgroundColor: THEME.COLORS.GREY_500,
+      width: '110%',
+      zIndex: 1,
+      opacity: interpolate(scrollYSharedValue.value, [50, 90], [0, 1], Extrapolate.CLAMP),
+      transform: [
+        { translateY: interpolate(scrollYSharedValue.value, [50, 100], [-40, 0], Extrapolate.CLAMP) }
+      ]
+    }
+  })
+
   useEffect(() => {
     const quizSelected = QUIZ.filter(item => item.id === id)[0];
     setQuiz(quizSelected);
@@ -132,16 +168,54 @@ export function Quiz() {
       handleNextQuestion();
     }
   }, [points]);
+  
+  const onPan = Gesture
+    .Pan()
+    .onUpdate((event) => {
+      const moveToLeft = event.translationX < 0
+      if (moveToLeft) {
+        cardPositionSharedValue.value = event.translationX
+      }
+    })
+    .onEnd(event => {
+      if(event.translationX < CARD_SKIP_AREA) {
+        runOnJS(handleSkipConfirm)()
+      }
+      cardPositionSharedValue.value = withTiming(0)
+    })
 
+  const dragStyles = useAnimatedStyle(() => {
+    const rotateZValue = cardPositionSharedValue.value / CARD_INCLINATION
+    return {
+      transform: [
+        { rotateZ: `${rotateZValue}deg` },
+        { translateX: cardPositionSharedValue.value * 1.5}
+      ]
+    }
+  })
+  
   if (isLoading) {
     return <Loading />
   }
 
+
+
+
   return (
     <View style={styles.container}>
-      <ScrollView
+      <OverlayFeedback color='orange'/>
+      <Animated.View
+        style={fixedProgressBarStyles}
+      >
+        <Text style={styles.title}>{quiz.title}</Text>
+        <ProgressBar total={quiz.questions.length} current={currentQuestion + 1} />
+      </Animated.View>
+
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.question}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
         <QuizHeader
           title={quiz.title}
@@ -149,22 +223,24 @@ export function Quiz() {
           totalOfQuestions={quiz.questions.length}
         />
 
-        <Animated.View
-          style={shakeStyleAnimated}
-        >
-          <Question
-            key={quiz.questions[currentQuestion].title}
-            question={quiz.questions[currentQuestion]}
-            alternativeSelected={alternativeSelected}
-            setAlternativeSelected={setAlternativeSelected}
-          />
-        </Animated.View>
+        <GestureDetector gesture={onPan}>
+          <Animated.View
+            style={[shakeStyleAnimated, dragStyles]}
+          >
+            <Question
+              key={quiz.questions[currentQuestion].title}
+              question={quiz.questions[currentQuestion]}
+              alternativeSelected={alternativeSelected}
+              setAlternativeSelected={setAlternativeSelected}
+            />
+          </Animated.View>
+        </GestureDetector>
 
         <View style={styles.footer}>
           <OutlineButton title="Parar" onPress={handleStop} />
           <ConfirmButton onPress={handleConfirm} />
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View >
   );
 }
