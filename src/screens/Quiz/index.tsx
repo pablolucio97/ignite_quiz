@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, BackHandler, Text, View } from 'react-native';
 import { Audio } from 'expo-av'
+import * as Haptics from 'expo-haptics';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Animated, {
@@ -65,6 +66,10 @@ export function Quiz() {
   const route = useRoute();
   const { id } = route.params as Params;
 
+  async function vibrateDevice() {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+  }
+
   async function playAudio(isCorrect: boolean) {
 
     const file = isCorrect ? require('../../assets/correct.mp3') : require('../../assets/wrong.mp3')
@@ -113,9 +118,11 @@ export function Quiz() {
 
     if (quiz.questions[currentQuestion].correct === alternativeSelected) {
       playAudio(true)
+      vibrateDevice()
       setPoints(prevState => prevState + 1);
     } else {
       playAudio(false)
+      vibrateDevice()
       shakeAnimation()
     }
 
@@ -182,6 +189,11 @@ export function Quiz() {
       handleNextQuestion();
     }
   }, [points]);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleStop)
+    return () => backHandler.remove()
+  }, [])
 
   const onPan = Gesture
     .Pan()
